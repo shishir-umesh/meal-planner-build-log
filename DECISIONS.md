@@ -92,3 +92,37 @@ Short records of the choices that shape the build: the context, the decision, an
 - The append-only event log has to be designed so listeners read current state, not the whole history, or reads will grow over time.
 - The web keeps household data in IndexedDB.
 - In exchange, offline and real-time sync come built in and free, without writing a sync engine.
+
+## 8. Household data model and security rules (2026-10-03)
+
+**Context.** Decision 7 put household data in Firestore. Everything a household shares (its settings, members, pantry, recipes and meal plan) needs a shape that the security rules can enforce, that keeps reads within the free plan, and that doesn't block later work on invites, sign-in and per-person privacy.
+
+**Decision.**
+- **Scope:** everything lives under one household document. Members are a subcollection, and a user belongs to a household when their member document exists. The rules check that on every read and write, so one household can never see another's data.
+- **Private data:** each member's nutrition targets and weight sit in a private document only that member can read. Diet, allergies and dislikes are shared, because the planner needs them for everyone.
+- **Pantry:** pantry items hold the current state, and the app listens to them. Every change also writes an inventory event in the same batch. Events are append-only: the rules allow creating them and nothing else, so an undo is a new event. The app reads history on demand and never listens to it.
+- **Recipes and meal slots:** a recipe is visible to the household or private to its author, through one field and two scoped queries. A meal slot's id is its date plus its slot, so a slot can't be planned twice.
+- **Dates and lookup:** dates are stored as `YYYY-MM-DD` text. Each user has a small document listing their households, capped at 5, so finding them costs one read and never a query.
+- **Validation:** the rules check every field's type, allowed values and size. Links must be `http(s)`, ids can't reach into other paths, and every write is stamped with the writer and the server time.
+- **Joining:** nobody can join an existing household until invite links exist.
+- **Tests:** a shared contract suite runs against an in-memory fake and against the real Firestore code on the emulator. The rules tests run there too, in CI, in about a minute.
+
+**Measured.**
+- 49 emulator tests pass: 29 rules tests plus the 20-case repository contract.
+- With an allow-everything ruleset, 20 of the rules tests fail, so the tests do catch broken rules.
+- Running the contract against Firestore caught one gap: the rules refuse an update to a missing item before Firestore can say "not found". The code now checks first, at one read per pantry change.
+
+**Security.**
+- **Done here:** household isolation, owner-only household creation tied to the creator's capped list, member-only private profiles and an append-only event log.
+- **Still to do:**
+  - Invite links and leave/remove rules (T-021).
+  - Sign-in with account linking (T-020). Until then the shipped app can't read production data, which fails closed.
+  - App Check and API-key restrictions.
+  - Write caps per household.
+  - A note that the local caches rely on device encryption.
+
+**Trade-off.**
+- **Read cost:** every request costs one extra read for the membership check, and the recipe list needs two listeners.
+- **Validation limits:** the rules can't look inside list elements, so the app's own parsers check each document and drop any that don't fit.
+- **Owner changes:** the owner is fixed for now. Transferring ownership needs a rule change later.
+- **In exchange:** each household's data is isolated by the server, not by trust in the app, and a household of two stays well inside the free quota.
