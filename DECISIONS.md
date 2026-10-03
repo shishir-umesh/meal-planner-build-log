@@ -41,3 +41,11 @@ Short records of the choices that shape the build: the context, the decision, an
 **Decision.** Expo (React Native, TypeScript) with a development build.
 
 **Trade-off.** On-device OCR and LLM access need small native modules, written with the Expo Modules API.
+
+## 6. iOS and web only; Apple Developer Program now (2026-10-03)
+
+**Context.** Both phones in our household are iPhones: an iPhone 17 Pro Max and an iPhone 14 Pro Max, both on iOS 26 today and moving to iOS 27. Development builds on an iPhone need Apple code signing. Free provisioning expires every 7 days and is limited to 3 devices, so the app on my wife's phone would stop opening every week.
+
+**Decision.** v1 supports iOS and web only, which narrows decision 5; no Android in v1. Development builds go on both iPhones, and I joined the Apple Developer Program ($99/yr) now rather than at the beta. The 14 Pro Max has no Apple Intelligence, so it is the baseline device.
+
+**Trade-off.** $99 a year before we know the app is worth it, the only running cost so far. Android friends get the web build until Android is added.
