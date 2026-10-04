@@ -126,3 +126,28 @@ Short records of the choices that shape the build: the context, the decision, an
 - **Validation limits:** the rules can't look inside list elements, so the app's own parsers check each document and drop any that don't fit.
 - **Owner changes:** the owner is fixed for now. Transferring ownership needs a rule change later.
 - **In exchange:** each household's data is isolated by the server, not by trust in the app, and a household of two stays well inside the free quota.
+
+## 9. Nutrition reference data: built from FoodData Central, committed, SQLite on iPhone and JSON on web (2026-10-03)
+
+**Context.** Every nutrition number in the app must come from USDA FoodData Central (FDC), never from a language model, and the app has to work offline. The app needs calories, protein, fiber, carbs and fat per 100 g for thousands of foods, plus household portions such as "1 cup = 158 g". FDC publishes the data as CSV downloads in the public domain (CC0). There are two kinds: Foundation Foods, updated a few times a year, and SR Legacy, the final 2018 release.
+
+**Decision.**
+- **Build:** a Python script using only the standard library downloads the two releases, pinned by URL and checksum. It keeps only real foods, which drops about 88,000 lab-sample rows, and writes the per-100 g values and portions for both kinds of food: 8,262 foods and 14,636 portions.
+- **Missing values:** a value FDC doesn't give stays empty. It's never zero and never estimated.
+- **Energy:** many Foundation foods have no standard energy value, so energy uses FDC's standard value, then "Atwater specific", then "Atwater general". Every number records which FDC field it came from.
+- **Commit the generated files** instead of building them in CI or at install time: a 1.8 MB SQLite file and a 2.8 MB JSON copy. The build is byte-for-byte repeatable, and CI checks the committed files without touching the network.
+- **iPhone:** reads the SQLite file, which ships inside the app.
+- **Web:** reads the JSON from the app's own server. SQLite on the web is still experimental in Expo and would need special security headers on every host.
+
+**Measured.**
+- **iPhone:** a release build on the simulator read cooked rice (130 kcal, 2.69 g protein, 0.4 g fiber per 100 g, "1 cup = 158 g") from a file inside the app, with no development server running, in 11 ms.
+- **Web:** the browser made requests only to the app's own origin.
+- **Tests:**
+  - Rice and toor dal match FDC's published values in the build script's tests and in the app's tests.
+  - The app's tests run against both committed files.
+
+**Trade-off.**
+- **Repository size:** about 4.6 MB of generated data, and a data update is a new commit and a new app build.
+- **Two formats:** the web and iPhone copies must never drift apart. The build writes both from the same rows, and both CI and the app's tests check that they match.
+- **Choosing a food:** with two kinds of FDC food, the ingredient catalog has to choose which food each ingredient uses.
+- **Search:** SQLite full-text search is available on the iPhone but not on the web yet.
