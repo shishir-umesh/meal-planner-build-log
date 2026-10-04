@@ -151,3 +151,20 @@ Short records of the choices that shape the build: the context, the decision, an
 - **Two formats:** the web and iPhone copies must never drift apart. The build writes both from the same rows, and both CI and the app's tests check that they match.
 - **Choosing a food:** with two kinds of FDC food, the ingredient catalog has to choose which food each ingredient uses.
 - **Search:** SQLite full-text search is available on the iPhone but not on the web yet.
+
+## 10. Shelf-life reference data: FoodKeeper in the same database, normalized to days, odd entries kept as statuses (2026-10-03)
+
+**Context.** The pantry has to know how long food lasts so the planner can use what expires first. USDA's FoodKeeper (public domain, CC0) gives pantry, fridge and freezer windows for 661 products, unopened, after opening and after thawing. Its units vary (hours to years), and some entries aren't durations at all: "when ripe", "follow the package date", "indefinitely", "not recommended", or only a tip. FSIS blocks scripted downloads of the file.
+
+**Decision.**
+- **Same database:** FoodKeeper goes into the reference database from decision 9 as three tables: categories, products and windows. The iPhone and web copies stay in step through the same checks.
+- **Days:** every duration is stored in days. A week is 7, a month 30 and a year 365, and hours become fractions of a day.
+- **Entries that aren't durations** keep a status with no days instead of a guessed number. The expiry engine decides what each means for the user.
+- **Basis:** each window records whether it counts from the date of purchase or from when the food went into that place. FoodKeeper gives both for some foods.
+- **Data errors:** the four data errors in version 128 are handled on purpose and covered by tests. Three have text where a number belongs; one window has only a maximum.
+- **Pinned file:** the file is pinned by version and checksum. When the download is blocked, the build says how to save it from a browser.
+
+**Trade-off.**
+- **Approximate months:** 30-day months are slightly short over long freezer times; a year in the freezer reads as 360 days for products FoodKeeper lists in months.
+- **Old data:** the data is FSIS's 2018 version 128, the current one. Shelf-life advice changes slowly, but a newer version will need a manual download.
+- **More work later:** statuses push some decisions to the expiry engine instead of hiding them in made-up numbers.
